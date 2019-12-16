@@ -1,25 +1,24 @@
-// Copyright 2016 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Flutter Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 import 'package:args/command_runner.dart';
 import 'package:file/memory.dart';
-import 'package:mockito/mockito.dart';
-
 import 'package:flutter_tools/src/base/config.dart';
-import 'package:flutter_tools/src/base/platform.dart';
-import 'package:flutter_tools/src/base/time.dart';
-import 'package:flutter_tools/src/features.dart';
 import 'package:flutter_tools/src/base/file_system.dart';
 import 'package:flutter_tools/src/base/io.dart';
+import 'package:flutter_tools/src/base/platform.dart';
+import 'package:flutter_tools/src/base/time.dart';
 import 'package:flutter_tools/src/cache.dart';
 import 'package:flutter_tools/src/commands/build.dart';
 import 'package:flutter_tools/src/commands/config.dart';
 import 'package:flutter_tools/src/commands/doctor.dart';
 import 'package:flutter_tools/src/doctor.dart';
-import 'package:flutter_tools/src/reporting/usage.dart';
+import 'package:flutter_tools/src/features.dart';
+import 'package:flutter_tools/src/reporting/reporting.dart';
 import 'package:flutter_tools/src/runner/flutter_command.dart';
 import 'package:flutter_tools/src/version.dart';
+import 'package:mockito/mockito.dart';
 import 'package:platform/platform.dart';
 
 import '../src/common.dart';
@@ -56,7 +55,7 @@ void main() {
 
       flutterUsage.enabled = true;
       await createProject(tempDir);
-      expect(count, flutterUsage.isFirstRun ? 0 : 2);
+      expect(count, flutterUsage.isFirstRun ? 0 : 4);
 
       count = 0;
       flutterUsage.enabled = false;
@@ -66,7 +65,10 @@ void main() {
       expect(count, 0);
     }, overrides: <Type, Generator>{
       FlutterVersion: () => FlutterVersion(const SystemClock()),
-      Usage: () => Usage(configDirOverride: tempDir.path),
+      Usage: () => Usage(
+        configDirOverride: tempDir.path,
+        logFile: tempDir.childFile('analytics.log').path,
+      ),
     });
 
     // Ensure we don't send for the 'flutter config' command.
@@ -85,16 +87,20 @@ void main() {
       expect(count, 0);
     }, overrides: <Type, Generator>{
       FlutterVersion: () => FlutterVersion(const SystemClock()),
-      Usage: () => Usage(configDirOverride: tempDir.path),
+      Usage: () => Usage(
+        configDirOverride: tempDir.path,
+        logFile: tempDir.childFile('analytics.log').path,
+      ),
     });
 
     testUsingContext('Usage records one feature in experiment setting', () async {
-      when<bool>(mockFlutterConfig.getValue(flutterWebFeature.configSetting))
+      when<bool>(mockFlutterConfig.getValue(flutterWebFeature.configSetting) as bool)
           .thenReturn(true);
       final Usage usage = Usage();
       usage.sendCommand('test');
 
-      expect(fs.file('test').readAsStringSync(), contains('$enabledFlutterFeatures: enable-web'));
+      final String featuresKey = cdKey(CustomDimensions.enabledFlutterFeatures);
+      expect(fs.file('test').readAsStringSync(), contains('$featuresKey: enable-web'));
     }, overrides: <Type, Generator>{
       FlutterVersion: () => FlutterVersion(const SystemClock()),
       Config: () => mockFlutterConfig,
@@ -102,19 +108,21 @@ void main() {
         'FLUTTER_ANALYTICS_LOG_FILE': 'test',
       }),
       FileSystem: () => MemoryFileSystem(),
+      ProcessManager: () => FakeProcessManager.any(),
     });
 
     testUsingContext('Usage records multiple features in experiment setting', () async {
-      when<bool>(mockFlutterConfig.getValue(flutterWebFeature.configSetting))
+      when<bool>(mockFlutterConfig.getValue(flutterWebFeature.configSetting) as bool)
           .thenReturn(true);
-      when<bool>(mockFlutterConfig.getValue(flutterLinuxDesktopFeature.configSetting))
+      when<bool>(mockFlutterConfig.getValue(flutterLinuxDesktopFeature.configSetting) as bool)
           .thenReturn(true);
-      when<bool>(mockFlutterConfig.getValue(flutterMacOSDesktopFeature.configSetting))
+      when<bool>(mockFlutterConfig.getValue(flutterMacOSDesktopFeature.configSetting) as bool)
           .thenReturn(true);
       final Usage usage = Usage();
       usage.sendCommand('test');
 
-      expect(fs.file('test').readAsStringSync(), contains('$enabledFlutterFeatures: enable-web,enable-linux-desktop,enable-macos-desktop'));
+      final String featuresKey = cdKey(CustomDimensions.enabledFlutterFeatures);
+      expect(fs.file('test').readAsStringSync(), contains('$featuresKey: enable-web,enable-linux-desktop,enable-macos-desktop'));
     }, overrides: <Type, Generator>{
       FlutterVersion: () => FlutterVersion(const SystemClock()),
       Config: () => mockFlutterConfig,
@@ -122,6 +130,7 @@ void main() {
         'FLUTTER_ANALYTICS_LOG_FILE': 'test',
       }),
       FileSystem: () => MemoryFileSystem(),
+      ProcessManager: () => FakeProcessManager.any(),
     });
   });
 
@@ -192,7 +201,7 @@ void main() {
 
     testUsingContext('compound command usage path', () async {
       final BuildCommand buildCommand = BuildCommand();
-      final FlutterCommand buildApkCommand = buildCommand.subcommands['apk'];
+      final FlutterCommand buildApkCommand = buildCommand.subcommands['apk'] as FlutterCommand;
       expect(await buildApkCommand.usagePath, 'build/apk');
     }, overrides: <Type, Generator>{
       Usage: () => mockUsage,
@@ -211,9 +220,10 @@ void main() {
 
       final String log = fs.file('analytics.log').readAsStringSync();
       final DateTime dateTime = DateTime.fromMillisecondsSinceEpoch(kMillis);
-      expect(log.contains(dateTime.toString()), isTrue);
+      expect(log.contains(formatDateTime(dateTime)), isTrue);
     }, overrides: <Type, Generator>{
       FileSystem: () => memoryFileSystem,
+      ProcessManager: () => FakeProcessManager.any(),
       SystemClock: () => mockClock,
       Platform: () => FakePlatform(
         environment: <String, String>{
@@ -236,9 +246,10 @@ void main() {
 
       final String log = fs.file('analytics.log').readAsStringSync();
       final DateTime dateTime = DateTime.fromMillisecondsSinceEpoch(kMillis);
-      expect(log.contains(dateTime.toString()), isTrue);
+      expect(log.contains(formatDateTime(dateTime)), isTrue);
     }, overrides: <Type, Generator>{
       FileSystem: () => memoryFileSystem,
+      ProcessManager: () => FakeProcessManager.any(),
       SystemClock: () => mockClock,
       Platform: () => FakePlatform(
         environment: <String, String>{

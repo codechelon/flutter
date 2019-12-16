@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Flutter Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,7 +11,7 @@ import '../base/file_system.dart';
 import '../convert.dart';
 import '../features.dart';
 import '../globals.dart';
-import '../reporting/usage.dart';
+import '../reporting/reporting.dart';
 import '../runner/flutter_command.dart';
 import '../version.dart';
 
@@ -23,7 +23,6 @@ class ConfigCommand extends FlutterCommand {
     argParser.addFlag('clear-ios-signing-cert',
       negatable: false,
       help: 'Clear the saved development certificate choice used to sign apps for iOS device deployment.');
-    argParser.addOption('gradle-dir', help: 'The gradle install directory.');
     argParser.addOption('android-sdk', help: 'The Android SDK directory.');
     argParser.addOption('android-studio-dir', help: 'The Android Studio install directory.');
     argParser.addOption('build-dir', help: 'The relative path to override a projects build directory',
@@ -87,8 +86,9 @@ class ConfigCommand extends FlutterCommand {
           }
           return '  $key: ${config.getValue(key)} $configFooter';
         }).join('\n');
-    if (values.isEmpty)
+    if (values.isEmpty) {
       values = '  No settings have been configured.';
+    }
     return
       '\nSettings:\n$values\n\n'
       'Analytics reporting is currently ${flutterUsage.enabled ? 'enabled' : 'disabled'}.';
@@ -100,12 +100,12 @@ class ConfigCommand extends FlutterCommand {
 
   @override
   Future<FlutterCommandResult> runCommand() async {
-    if (argResults['machine']) {
+    if (boolArg('machine')) {
       await handleMachine();
       return null;
     }
 
-    if (argResults['clear-features']) {
+    if (boolArg('clear-features')) {
       for (Feature feature in allFeatures) {
         if (feature.configSetting != null) {
           config.removeValue(feature.configSetting);
@@ -115,25 +115,26 @@ class ConfigCommand extends FlutterCommand {
     }
 
     if (argResults.wasParsed('analytics')) {
-      final bool value = argResults['analytics'];
+      final bool value = boolArg('analytics');
       flutterUsage.enabled = value;
+      AnalyticsConfigEvent(enabled: value).send();
       printStatus('Analytics reporting ${value ? 'enabled' : 'disabled'}.');
     }
 
-    if (argResults.wasParsed('gradle-dir'))
-      _updateConfig('gradle-dir', argResults['gradle-dir']);
+    if (argResults.wasParsed('android-sdk')) {
+      _updateConfig('android-sdk', stringArg('android-sdk'));
+    }
 
-    if (argResults.wasParsed('android-sdk'))
-      _updateConfig('android-sdk', argResults['android-sdk']);
+    if (argResults.wasParsed('android-studio-dir')) {
+      _updateConfig('android-studio-dir', stringArg('android-studio-dir'));
+    }
 
-    if (argResults.wasParsed('android-studio-dir'))
-      _updateConfig('android-studio-dir', argResults['android-studio-dir']);
-
-    if (argResults.wasParsed('clear-ios-signing-cert'))
+    if (argResults.wasParsed('clear-ios-signing-cert')) {
       _updateConfig('ios-signing-cert', '');
+    }
 
     if (argResults.wasParsed('build-dir')) {
-      final String buildDir = argResults['build-dir'];
+      final String buildDir = stringArg('build-dir');
       if (fs.path.isAbsolute(buildDir)) {
         throwToolExit('build-dir should be a relative path');
       }
@@ -145,14 +146,17 @@ class ConfigCommand extends FlutterCommand {
         continue;
       }
       if (argResults.wasParsed(feature.configSetting)) {
-        final bool keyValue = argResults[feature.configSetting];
+        final bool keyValue = boolArg(feature.configSetting);
         config.setValue(feature.configSetting, keyValue);
         printStatus('Setting "${feature.configSetting}" value to "$keyValue".');
       }
     }
 
-    if (argResults.arguments.isEmpty)
+    if (argResults.arguments.isEmpty) {
       printStatus(usage);
+    } else {
+      printStatus('\nYou may need to restart any open editors for them to read new settings.');
+    }
 
     return null;
   }

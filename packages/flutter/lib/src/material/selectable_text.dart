@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Flutter Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -46,7 +46,7 @@ class _TextSpanEditingController extends TextEditingController {
 
 class _SelectableTextSelectionGestureDetectorBuilder extends TextSelectionGestureDetectorBuilder {
   _SelectableTextSelectionGestureDetectorBuilder({
-    @required _SelectableTextState state
+    @required _SelectableTextState state,
   }) : _state = state,
       super(delegate: state);
 
@@ -70,6 +70,7 @@ class _SelectableTextSelectionGestureDetectorBuilder extends TextSelectionGestur
     if (delegate.selectionEnabled) {
       switch (Theme.of(_state.context).platform) {
         case TargetPlatform.iOS:
+        case TargetPlatform.macOS:
           renderEditable.selectPositionAt(
             from: details.globalPosition,
             cause: SelectionChangedCause.longPress,
@@ -93,6 +94,7 @@ class _SelectableTextSelectionGestureDetectorBuilder extends TextSelectionGestur
     if (delegate.selectionEnabled) {
       switch (Theme.of(_state.context).platform) {
         case TargetPlatform.iOS:
+        case TargetPlatform.macOS:
           renderEditable.selectWordEdge(cause: SelectionChangedCause.tap);
           break;
         case TargetPlatform.android:
@@ -110,6 +112,7 @@ class _SelectableTextSelectionGestureDetectorBuilder extends TextSelectionGestur
     if (delegate.selectionEnabled) {
       switch (Theme.of(_state.context).platform) {
         case TargetPlatform.iOS:
+        case TargetPlatform.macOS:
           renderEditable.selectPositionAt(
             from: details.globalPosition,
             cause: SelectionChangedCause.longPress,
@@ -130,6 +133,8 @@ class _SelectableTextSelectionGestureDetectorBuilder extends TextSelectionGestur
 /// The [SelectableText] widget displays a string of text with a single style.
 /// The string might break across multiple lines or might all be displayed on
 /// the same line depending on the layout constraints.
+///
+/// {@youtube 560 315 https://www.youtube.com/watch?v=ZSU3ZXOs6hc}
 ///
 /// The [style] argument is optional. When omitted, the text will use the style
 /// from the closest enclosing [DefaultTextStyle]. If the given style's
@@ -184,7 +189,10 @@ class SelectableText extends StatefulWidget {
   /// If the [style] argument is null, the text will use the style from the
   /// closest enclosing [DefaultTextStyle].
   ///
-  /// The [data] parameter must not be null.
+
+  /// The [showCursor], [autofocus], [dragStartBehavior], and [data] parameters
+  /// must not be null. If specified, the [maxLines] argument must be greater
+  /// than zero.
   const SelectableText(
     this.data, {
     Key key,
@@ -195,6 +203,7 @@ class SelectableText extends StatefulWidget {
     this.textDirection,
     this.showCursor = false,
     this.autofocus = false,
+    ToolbarOptions toolbarOptions,
     this.maxLines,
     this.cursorWidth = 2.0,
     this.cursorRadius,
@@ -213,12 +222,19 @@ class SelectableText extends StatefulWidget {
           'A non-null String must be provided to a SelectableText widget.',
         ),
         textSpan = null,
+        toolbarOptions = toolbarOptions ??
+          const ToolbarOptions(
+            selectAll: true,
+            copy: true,
+          ),
         super(key: key);
 
   /// Creates a selectable text widget with a [TextSpan].
   ///
   /// The [textSpan] parameter must not be null and only contain [TextSpan] in
   /// [textSpan.children]. Other type of [InlineSpan] is not allowed.
+  ///
+  /// The [autofocus] and [dragStartBehavior] arguments must not be null.
   const SelectableText.rich(
     this.textSpan, {
     Key key,
@@ -229,6 +245,7 @@ class SelectableText extends StatefulWidget {
     this.textDirection,
     this.showCursor = false,
     this.autofocus = false,
+    ToolbarOptions toolbarOptions,
     this.maxLines,
     this.cursorWidth = 2.0,
     this.cursorRadius,
@@ -247,6 +264,11 @@ class SelectableText extends StatefulWidget {
       'A non-null TextSpan must be provided to a SelectableText.rich widget.',
     ),
     data = null,
+    toolbarOptions = toolbarOptions ??
+      const ToolbarOptions(
+        selectAll: true,
+        copy: true,
+      ),
     super(key: key);
 
   /// The text to display.
@@ -325,6 +347,13 @@ class SelectableText extends StatefulWidget {
   /// {@macro flutter.widgets.scrollable.dragStartBehavior}
   final DragStartBehavior dragStartBehavior;
 
+  /// Configuration of toolbar options.
+  ///
+  /// Paste and cut will be disabled regardless.
+  ///
+  /// If not set, select all and copy will be enabled by default.
+  final ToolbarOptions toolbarOptions;
+
   /// {@macro flutter.rendering.editable.selectionEnabled}
   bool get selectionEnabled {
     return enableInteractiveSelection;
@@ -347,10 +376,10 @@ class SelectableText extends StatefulWidget {
   /// selectable text's internal gesture detector, use a [Listener].
   final GestureTapCallback onTap;
 
-  /// {@macro flutter.widgets.edtiableText.scrollPhysics}
+  /// {@macro flutter.widgets.editableText.scrollPhysics}
   final ScrollPhysics scrollPhysics;
 
-  /// {@macro flutter.dart:ui.text.TextWidthBasis}
+  /// {@macro flutter.painting.textPainter.textWidthBasis}
   final TextWidthBasis textWidthBasis;
 
   @override
@@ -416,7 +445,7 @@ class _SelectableTextState extends State<SelectableText> with AutomaticKeepAlive
       );
     }
     if (_effectiveFocusNode.hasFocus && _controller.selection.isCollapsed) {
-        _showSelectionHandles = false;
+      _showSelectionHandles = false;
     }
   }
 
@@ -436,6 +465,7 @@ class _SelectableTextState extends State<SelectableText> with AutomaticKeepAlive
 
     switch (Theme.of(context).platform) {
       case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
         if (cause == SelectionChangedCause.longPress) {
           _editableText?.bringIntoView(selection.base);
         }
@@ -503,6 +533,7 @@ class _SelectableTextState extends State<SelectableText> with AutomaticKeepAlive
 
     switch (themeData.platform) {
       case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
         forcePressEnabled = true;
         textSelectionControls = cupertinoTextSelectionControls;
         paintCursorAboveText = true;
@@ -543,6 +574,7 @@ class _SelectableTextState extends State<SelectableText> with AutomaticKeepAlive
         textDirection: widget.textDirection,
         autofocus: widget.autofocus,
         forceLine: false,
+        toolbarOptions: widget.toolbarOptions,
         maxLines: widget.maxLines ?? defaultTextStyle.maxLines,
         selectionColor: themeData.textSelectionColor,
         selectionControls: widget.selectionEnabled ? textSelectionControls : null,

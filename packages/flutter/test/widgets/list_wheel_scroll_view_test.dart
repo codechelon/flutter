@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Flutter Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -134,7 +134,7 @@ void main() {
               },
             ),
           ),
-        )
+        ),
       );
 
       // Can be scrolled infinitely for negative indexes.
@@ -183,7 +183,7 @@ void main() {
               },
             ),
           ),
-        )
+        ),
       );
 
       expect(paintedChildren, <int>[-13, -12, -11, -10, -9, -8, -7]);
@@ -299,7 +299,7 @@ void main() {
               },
             ),
           ),
-        )
+        ),
       );
 
       // Scrolls up and down to check if builder is called twice.
@@ -326,7 +326,7 @@ void main() {
               return Text(index.toString());
             }),
           ),
-        )
+        ),
       );
 
       final RenderListWheelViewport viewport = tester.firstRenderObject(find.byType(Text)).parent.parent;
@@ -363,7 +363,7 @@ void main() {
               return Text(index.toString());
             }),
           ),
-        )
+        ),
       );
 
       final RenderListWheelViewport viewport = tester.firstRenderObject(find.byType(Text)).parent.parent;
@@ -385,7 +385,7 @@ void main() {
               return Text(index.toString());
             }),
           ),
-        )
+        ),
       );
 
       // 12 instead of 6 children are laid out + 1 because the middle item is
@@ -535,13 +535,9 @@ void main() {
 
       await expectLater(
         find.byKey(const Key('list_wheel_scroll_view')),
-        matchesGoldenFile(
-          'list_wheel_scroll_view.center_child.magnified.png',
-          version: null,
-        ),
-        skip: !isLinux,
+        matchesGoldenFile('list_wheel_scroll_view.center_child.magnified.png'),
       );
-    }, skip: isBrowser);
+    });
 
     testWidgets('Default middle transform', (WidgetTester tester) async {
       await tester.pumpWidget(
@@ -593,13 +589,9 @@ void main() {
 
       await expectLater(
         find.byKey(const Key('list_wheel_scroll_view')),
-        matchesGoldenFile(
-          'list_wheel_scroll_view.curved_wheel.left.png',
-          version: null,
-        ),
-        skip: !isLinux,
+        matchesGoldenFile('list_wheel_scroll_view.curved_wheel.left.png'),
       );
-    }, skip: isBrowser);
+    });
 
     testWidgets('Scrolling, diameterRatio, perspective all changes matrix', (WidgetTester tester) async {
       final ScrollController controller = ScrollController(initialScrollOffset: 200.0);

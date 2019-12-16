@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Flutter Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -35,21 +35,24 @@ import 'image_provider.dart';
 ///
 /// {@tool sample}
 ///
-/// The following example uses the [Container] widget from the widgets layer to
-/// draw an image with a border:
+/// The following applies a [BoxDecoration] to a [Container] widget to draw an
+/// [image] of an owl with a thick black [border] and rounded corners.
+///
+/// ![](https://flutter.github.io/assets-for-api-docs/assets/painting/box_decoration.png)
 ///
 /// ```dart
 /// Container(
 ///   decoration: BoxDecoration(
 ///     color: const Color(0xff7c94b6),
-///     image: DecorationImage(
-///       image: ExactAssetImage('images/flowers.jpeg'),
+///     image: const DecorationImage(
+///       image: NetworkImage('https:///flutter.github.io/assets-for-api-docs/assets/widgets/owl-2.jpg'),
 ///       fit: BoxFit.cover,
 ///     ),
 ///     border: Border.all(
 ///       color: Colors.black,
-///       width: 8.0,
+///       width: 8,
 ///     ),
+///     borderRadius: BorderRadius.circular(12),
 ///   ),
 /// )
 /// ```
@@ -169,6 +172,12 @@ class BoxDecoration extends Decoration {
   /// A list of shadows cast by this box behind the box.
   ///
   /// The shadow follows the [shape] of the box.
+  ///
+  /// See also:
+  ///
+  ///  * [kElevationToShadow], for some predefined shadows used in Material
+  ///    Design.
+  ///  * [PhysicalModel], a widget for showing shadows.
   final List<BoxShadow> boxShadow;
 
   /// A gradient to use when filling the box.
@@ -204,6 +213,21 @@ class BoxDecoration extends Decoration {
   @override
   EdgeInsetsGeometry get padding => border?.dimensions;
 
+  @override
+  Path getClipPath(Rect rect, TextDirection textDirection) {
+    Path clipPath;
+    switch (shape) {
+      case BoxShape.circle:
+        clipPath = Path()..addOval(rect);
+        break;
+      case BoxShape.rectangle:
+        if (borderRadius != null)
+          clipPath = Path()..addRRect(borderRadius.resolve(textDirection).toRRect(rect));
+        break;
+    }
+    return clipPath;
+  }
+
   /// Returns a new box decoration that is scaled by the given factor.
   BoxDecoration scale(double factor) {
     return BoxDecoration(
@@ -226,7 +250,7 @@ class BoxDecoration extends Decoration {
       return scale(t);
     if (a is BoxDecoration)
       return BoxDecoration.lerp(a, this, t);
-    return super.lerpFrom(a, t);
+    return super.lerpFrom(a, t) as BoxDecoration;
   }
 
   @override
@@ -235,7 +259,7 @@ class BoxDecoration extends Decoration {
       return scale(1.0 - t);
     if (b is BoxDecoration)
       return BoxDecoration.lerp(this, b, t);
-    return super.lerpTo(b, t);
+    return super.lerpTo(b, t) as BoxDecoration;
   }
 
   /// Linearly interpolate between two box decorations.
@@ -290,14 +314,14 @@ class BoxDecoration extends Decoration {
       return true;
     if (runtimeType != other.runtimeType)
       return false;
-    final BoxDecoration typedOther = other;
-    return color == typedOther.color &&
-           image == typedOther.image &&
-           border == typedOther.border &&
-           borderRadius == typedOther.borderRadius &&
-           boxShadow == typedOther.boxShadow &&
-           gradient == typedOther.gradient &&
-           shape == typedOther.shape;
+    return other is BoxDecoration
+        && other.color == color
+        && other.image == image
+        && other.border == border
+        && other.borderRadius == borderRadius
+        && other.boxShadow == boxShadow
+        && other.gradient == gradient
+        && other.shape == shape;
   }
 
   @override
@@ -459,7 +483,7 @@ class _BoxDecorationPainter extends BoxPainter {
       canvas,
       rect,
       shape: _decoration.shape,
-      borderRadius: _decoration.borderRadius,
+      borderRadius: _decoration.borderRadius as BorderRadius,
       textDirection: configuration.textDirection,
     );
   }

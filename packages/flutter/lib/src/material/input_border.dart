@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Flutter Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -240,8 +240,8 @@ class UnderlineInputBorder extends InputBorder {
       return true;
     if (runtimeType != other.runtimeType)
       return false;
-    final InputBorder typedOther = other;
-    return typedOther.borderSide == borderSide;
+    return other is InputBorder
+        && other.borderSide == borderSide;
   }
 
   @override
@@ -478,16 +478,15 @@ class OutlineInputBorder extends InputBorder {
     } else {
       final double extent = lerpDouble(0.0, gapExtent + gapPadding * 2.0, gapPercentage);
       switch (textDirection) {
-        case TextDirection.rtl: {
+        case TextDirection.rtl:
           final Path path = _gapBorderPath(canvas, center, math.max(0.0, gapStart + gapPadding - extent), extent);
           canvas.drawPath(path, paint);
           break;
-        }
-        case TextDirection.ltr: {
+
+        case TextDirection.ltr:
           final Path path = _gapBorderPath(canvas, center, math.max(0.0, gapStart - gapPadding), extent);
           canvas.drawPath(path, paint);
           break;
-        }
       }
     }
   }
@@ -498,10 +497,10 @@ class OutlineInputBorder extends InputBorder {
       return true;
     if (runtimeType != other.runtimeType)
       return false;
-    final OutlineInputBorder typedOther = other;
-    return typedOther.borderSide == borderSide
-        && typedOther.borderRadius == borderRadius
-        && typedOther.gapPadding == gapPadding;
+    return other is OutlineInputBorder
+        && other.borderSide == borderSide
+        && other.borderRadius == borderRadius
+        && other.gapPadding == gapPadding;
   }
 
   @override

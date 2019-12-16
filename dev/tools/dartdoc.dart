@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Flutter Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -31,7 +31,7 @@ const String kSnippetsRoot = 'dev/snippets';
 Future<void> main(List<String> arguments) async {
   final ArgParser argParser = _createArgsParser();
   final ArgResults args = argParser.parse(arguments);
-  if (args['help']) {
+  if (args['help'] as bool) {
     print ('Usage:');
     print (argParser.usage);
     exit(0);
@@ -108,11 +108,12 @@ Future<void> main(List<String> arguments) async {
   createSearchMetadata('$kDocsRoot/lib/opensearch.xml', '$kDocsRoot/doc/opensearch.xml');
   cleanOutSnippets();
 
-  final List<String> dartdocBaseArgs = <String>['global', 'run'];
-  if (args['checked']) {
-    dartdocBaseArgs.add('-c');
-  }
-  dartdocBaseArgs.add('dartdoc');
+  final List<String> dartdocBaseArgs = <String>[
+    'global',
+    'run',
+    if (args['checked'] as bool) '-c',
+    'dartdoc',
+  ];
 
   // Verify which version of dartdoc we're using.
   final ProcessResult result = Process.runSync(
@@ -123,22 +124,17 @@ Future<void> main(List<String> arguments) async {
   );
   print('\n${result.stdout}flutter version: $version\n');
 
-  if (args['json']) {
-    dartdocBaseArgs.add('--json');
-  }
-  if (args['validate-links']) {
-    dartdocBaseArgs.add('--validate-links');
-  } else {
-    dartdocBaseArgs.add('--no-validate-links');
-  }
-  dartdocBaseArgs.addAll(<String>['--link-to-source-excludes', '../../bin/cache',
-                                  '--link-to-source-root', '../..',
-                                  '--link-to-source-uri-template', 'https://github.com/flutter/flutter/blob/master/%f%#L%l%']);
   // Generate the documentation.
   // We don't need to exclude flutter_tools in this list because it's not in the
   // recursive dependencies of the package defined at dev/docs/pubspec.yaml
   final List<String> dartdocArgs = <String>[
     ...dartdocBaseArgs,
+    '--allow-tools',
+    if (args['json'] as bool) '--json',
+    if (args['validate-links'] as bool) '--validate-links' else '--no-validate-links',
+    '--link-to-source-excludes', '../../bin/cache',
+    '--link-to-source-root', '../..',
+    '--link-to-source-uri-template', 'https://github.com/flutter/flutter/blob/master/%f%#L%l%',
     '--inject-html',
     '--header', 'styles.html',
     '--header', 'analytics.html',
@@ -211,14 +207,14 @@ Future<void> main(List<String> arguments) async {
     workingDirectory: kDocsRoot,
     environment: pubEnvironment,
   ));
-  printStream(process.stdout, prefix: args['json'] ? '' : 'dartdoc:stdout: ',
-    filter: args['verbose'] ? const <Pattern>[] : <Pattern>[
+  printStream(process.stdout, prefix: args['json'] as bool ? '' : 'dartdoc:stdout: ',
+    filter: args['verbose'] as bool ? const <Pattern>[] : <Pattern>[
       RegExp(r'^generating docs for library '), // unnecessary verbosity
       RegExp(r'^pars'), // unnecessary verbosity
     ],
   );
-  printStream(process.stderr, prefix: args['json'] ? '' : 'dartdoc:stderr: ',
-    filter: args['verbose'] ? const <Pattern>[] : <Pattern>[
+  printStream(process.stderr, prefix: args['json'] as bool ? '' : 'dartdoc:stderr: ',
+    filter: args['verbose'] as bool ? const <Pattern>[] : <Pattern>[
       RegExp(r'^ warning: .+: \(.+/\.pub-cache/hosted/pub.dartlang.org/.+\)'), // packages outside our control
     ],
   );
@@ -256,7 +252,7 @@ String getBranchName() {
   if (gitResult.exitCode != 0)
     throw 'git status exit with non-zero exit code: ${gitResult.exitCode}';
   final Match gitBranchMatch = gitBranchRegexp.firstMatch(
-      gitResult.stdout.trim().split('\n').first);
+      (gitResult.stdout as String).trim().split('\n').first);
   return gitBranchMatch == null ? '' : gitBranchMatch.group(1).split('...').first;
 }
 
@@ -266,7 +262,7 @@ String gitRevision() {
   final ProcessResult gitResult = Process.runSync('git', <String>['rev-parse', 'HEAD']);
   if (gitResult.exitCode != 0)
     throw 'git rev-parse exit with non-zero exit code: ${gitResult.exitCode}';
-  final String gitRevision = gitResult.stdout.trim();
+  final String gitRevision = (gitResult.stdout as String).trim();
 
   return gitRevision.length > kGitRevisionLength ? gitRevision.substring(0, kGitRevisionLength) : gitRevision;
 }
@@ -458,7 +454,7 @@ List<String> findPackageNames() {
 }
 
 /// Finds all packages in the Flutter SDK
-List<FileSystemEntity> findPackages() {
+List<Directory> findPackages() {
   return Directory('packages')
     .listSync()
     .where((FileSystemEntity entity) {
